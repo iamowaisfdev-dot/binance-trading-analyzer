@@ -29,10 +29,10 @@ Risk:Reward:   1 : 2.4
 ## Setup (Step by Step)
 
 ### 1. Clone / Download this folder
-
+### 2. python -m pip install google-generativeai
 ### 2. Install dependencies
 ```bash
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 ### 3. Get API Keys
@@ -41,10 +41,6 @@ pip install -r requirements.txt
 - Go to https://console.anthropic.com
 - Create account → API Keys → Create Key
 - Cost: very cheap (each analysis = ~1000 tokens, fractions of a cent)
-
-#### CryptoPanic API (Optional — for news)
-- Go to https://cryptopanic.com/developers/api/
-- Register free → get your API token
 
 ### 4. Create your .env file
 ```bash

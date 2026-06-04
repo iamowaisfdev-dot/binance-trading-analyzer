@@ -5,6 +5,8 @@ ai_analyst.py — Send full market context to Claude and get a structured trade 
 import json
 import numpy as np
 import anthropic
+import google.generativeai as genai
+from config import GEMINI_API_KEY
 from config import ANTHROPIC_API_KEY
 
 
@@ -135,6 +137,48 @@ def get_trade_signal(
         result = {
             "trade"           : False,
             "no_trade_reason" : "AI response could not be parsed.",
+            "analysis_summary": raw[:300],
+            "risk_score"      : 99,
+            "btc_trend"       : "UNKNOWN",
+            "news_sentiment"  : "NEUTRAL",
+            "key_reasons"     : [],
+        }
+
+    return result
+
+def get_trade_signal_gemini(
+    symbol: str,
+    current_price: float,
+    coin_analysis: dict,
+    btc_price: float,
+    btc_analysis: dict,
+    news_text: str,
+) -> dict:
+    """Call Google Gemini API with all market data."""
+    if not GEMINI_API_KEY:
+        raise ValueError("GEMINI_API_KEY missing. Add it to your .env file.")
+
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel("gemini-1.5-flash")
+
+    prompt = build_prompt(symbol, current_price, coin_analysis,
+                          btc_price, btc_analysis, news_text)
+
+    response = model.generate_content(prompt)
+    raw = response.text.strip()
+
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+        raw = raw.strip()
+
+    try:
+        result = json.loads(raw)
+    except json.JSONDecodeError:
+        result = {
+            "trade"           : False,
+            "no_trade_reason" : "Gemini response could not be parsed.",
             "analysis_summary": raw[:300],
             "risk_score"      : 99,
             "btc_trend"       : "UNKNOWN",

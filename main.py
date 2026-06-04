@@ -14,7 +14,8 @@ from colorama import init, Fore, Style, Back
 from src.fetcher     import normalize_symbol, fetch_all_timeframes, get_current_price
 from src.indicators  import analyze_timeframe
 from src.news        import fetch_news, news_summary
-from src.ai_analyst  import get_trade_signal
+from src.ai_analyst  import get_trade_signal, get_trade_signal_gemini
+from config          import ANTHROPIC_API_KEY, GEMINI_API_KEY
 
 init(autoreset=True)  # colorama
 
@@ -110,13 +111,40 @@ def run(symbol_input: str):
     news_items = fetch_news(base)
     news_txt   = news_summary(news_items)
 
-    print(DIM + "  Asking Claude to analyze everything...\n" + RESET)
+     # ── AI Selection ─────────────────────────────────────────────────────────
+    has_claude  = bool(ANTHROPIC_API_KEY and ANTHROPIC_API_KEY != "your_anthropic_api_key_here")
+    has_gemini  = bool(GEMINI_API_KEY    and GEMINI_API_KEY    != "your_gemini_api_key_here")
 
-    # ── AI Analysis ───────────────────────────────────────────────────────────
-    result = get_trade_signal(
-        symbol, coin_price, coin_analysis,
-        btc_price, btc_analysis, news_txt
-    )
+    ai_choice = "C"  # default
+
+    if has_claude and has_gemini:
+        print()
+        print(C + "  Both AI keys detected." + RESET)
+        print(W + "  Which AI to use?  Claude (C)  /  Gemini (G)" + RESET)
+        ai_choice = input(C + "  Enter C or G: " + RESET).strip().upper()
+        if ai_choice not in ("C", "G"):
+            ai_choice = "C"
+        print()
+    elif has_gemini and not has_claude:
+        ai_choice = "G"
+    elif has_claude and not has_gemini:
+        ai_choice = "C"
+    else:
+        print(R + "\n  ✗ No AI API key found. Add ANTHROPIC_API_KEY or GEMINI_API_KEY to .env\n" + RESET)
+        return
+
+    if ai_choice == "G":
+        print(DIM + "  Asking Gemini to analyze everything...\n" + RESET)
+        result = get_trade_signal_gemini(
+            symbol, coin_price, coin_analysis,
+            btc_price, btc_analysis, news_txt
+        )
+    else:
+        print(DIM + "  Asking Claude to analyze everything...\n" + RESET)
+        result = get_trade_signal(
+            symbol, coin_price, coin_analysis,
+            btc_price, btc_analysis, news_txt
+        )
 
     # ── Print Output ──────────────────────────────────────────────────────────
     now = datetime.utcnow().strftime("%Y-%m-%d  %H:%M UTC")

@@ -12,7 +12,7 @@ from config import BINANCE_BASE_URL
 def normalize_symbol(symbol: str) -> str:
     """Convert 'ETH' or 'eth' → 'ETHUSDT', keep 'ETHUSDT' as-is."""
     s = symbol.strip().upper()
-    if not s.endswith("USDT") and not s.endswith("BTC") and not s.endswith("BNB"):
+    if not s.endswith("USDT") and not s.endswith("BTC"):
         s = s + "USDT"
     return s
 
