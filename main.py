@@ -16,7 +16,7 @@ from src.indicators  import analyze_timeframe
 from src.news        import fetch_news, news_summary
 from src.ai_analyst  import get_trade_signal, get_trade_signal_gemini
 from config          import ANTHROPIC_API_KEY, GEMINI_API_KEY
-
+from src.notifier import send_whatsapp, format_signal_message
 init(autoreset=True)  # colorama
 
 
@@ -266,8 +266,10 @@ def run_scan(filepath: str):
 
     total = len(coins)
     print()
-    print(C + f"  📋 Scanning {total} coins for trade signal..." + RESET)
-    print(DIM + "  Will stop at first valid signal.\n" + RESET)
+    print(C + f"  📋 Scanning {total} coins for trade signals..." + RESET)
+    print(DIM + "  Will stop after 3 signals.\n" + RESET)
+    signals_found = 0
+    max_signals = 3
 
     for i, coin in enumerate(coins, 1):
         symbol = normalize_symbol(coin)
@@ -296,11 +298,42 @@ def run_scan(filepath: str):
                                            btc_price, btc_analysis, news_txt)
 
             if result.get("trade"):
-                # Clear the progress line
+                # Quality filters — reject weak signals
+                rr_ok    = False
+                risk_ok  = result.get("risk_score", 99) <= 55
+                try:
+                    entry  = result['entry_price']
+                    target = result['target_price']
+                    sl     = result['stop_loss']
+                    direction = result.get("direction")
+                    if direction == "LONG":
+                        rr = (target - entry) / (entry - sl)
+                    else:
+                        rr = (entry - target) / (sl - entry)
+                    rr_ok = rr >= 1.8
+                except Exception:
+                    rr_ok = False
+
+                if not risk_ok or not rr_ok:
+                    print(" " * 60, end='\r')
+                    print(DIM + f"  [{i}/{total}] {symbol} — signal rejected (RR:{round(rr,2) if rr_ok is False else round(rr,2)} / Risk:{result.get('risk_score')})" + RESET)
+                    continue
+
+                signals_found += 1
                 print(" " * 60, end='\r')
-                print(G + f"\n  ✅ Signal found on {symbol}!\n" + RESET)
+                print(G + f"\n  ✅ Signal {signals_found}/3 found on {symbol}!\n" + RESET)
                 print_signal_only(symbol, coin_price, result)
-                return
+                # WhatsApp notification
+                msg = format_signal_message(symbol, coin_price, result)
+                sent = send_whatsapp(msg)
+                if sent:
+                    print(G + "  📱 WhatsApp notification sent!" + RESET)
+                else:
+                    print(DIM + "  📱 WhatsApp not configured or failed." + RESET)
+                if signals_found >= max_signals:
+                    print(G + "  3 signals complete. Scan finished.\n" + RESET)
+                    return
+                print(DIM + f"  Continuing scan for signal {signals_found + 1}/3...\n" + RESET)
 
         except Exception as e:
             print(" " * 60, end='\r')

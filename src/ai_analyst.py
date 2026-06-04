@@ -34,13 +34,17 @@ def build_prompt(
     return f"""You are a professional crypto technical analyst. Your job is to analyze market data and decide whether a trade is worth taking.
 
 STRICT RULES:
-- DO NOT force a trade signal. If market conditions are unclear, say NO TRADE.
-- If BTC is in a strong downtrend, be very cautious about LONG signals on any coin.
-- Leverage should be conservative: max 5x for clear trends, 1-2x for uncertain conditions.
-- Risk score: 0 = minimal risk (very clear setup), 100 = extremely risky (avoid).
-- Entry should be at current price or a nearby key level.
-- Stop Loss must be below a clear support (for LONG) or above resistance (for SHORT).
-- Target must have at least 1.5:1 reward/risk ratio.
+- Only give a signal when at least 2 out of 3 timeframes (1h, 4h, 1d) agree on direction.
+- Entry price MUST be current market price or the predictive price which will hit soon like support or resistance price.
+- Stop Loss must be based on ATR — not tighter than 1x ATR from entry.
+- Minimum Risk:Reward ratio is 2:1 — reject any setup below this.
+- Maximum risk score allowed is 45 — if setup scores higher, say NO TRADE.
+- Leverage maximum 10x, only if trend is confirmed on 4h and 1d both.
+- In sideways or choppy market (RSI between 45-55 on all timeframes), say NO TRADE.
+- BTC bearish: SHORT signals only if coin also shows clear weakness on 4h chart.
+- BTC bullish: LONG signals only if coin shows clear strength on 4h chart.
+- If volume is below average on 1h and 4h, say NO TRADE — no conviction in move.
+- Expected TP time minimum 12 hours — no scalp trades.
 
 ═══════════════════════════════════
 COIN: {symbol}
@@ -161,7 +165,7 @@ def get_trade_signal_gemini(
                           btc_price, btc_analysis, news_text)
     client = genai.Client(api_key=GEMINI_API_KEY)
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-3.1-flash-lite",
         contents=prompt
     )
     raw = response.text.strip()

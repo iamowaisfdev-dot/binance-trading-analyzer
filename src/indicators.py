@@ -138,7 +138,11 @@ def analyze_timeframe(df: pd.DataFrame, current_price: float) -> dict:
     vol_ratio = round(vol_cur / vol_avg, 2) if vol_avg else 1.0
 
     # Last 5 candles (for AI context)
-    last5 = df.tail(5)[['open', 'high', 'low', 'close', 'volume']].round(4).to_dict(orient='records')
+    tail = df.tail(50)[['open', 'high', 'low', 'close', 'volume']].round(2)
+    last5 = [
+        f"{row.Index.strftime('%m-%d %H:%M')} O:{row.open} H:{row.high} L:{row.low} C:{row.close} V:{round(row.volume)}"
+        for row in tail.itertuples()
+    ]
 
     # Support / Resistance
     levels = find_levels(df, current_price=current_price)

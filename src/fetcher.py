@@ -60,7 +60,10 @@ def get_current_price(symbol: str) -> float:
     url = f"{BINANCE_FUTURES_URL}/fapi/v1/ticker/price"
     resp = requests.get(url, params={"symbol": symbol}, timeout=10)
     resp.raise_for_status()
-    return float(resp.json()["price"])
+    data = resp.json()
+    if "price" not in data:
+        raise ValueError(f"Symbol '{symbol}' not available on Binance Futures.")
+    return float(data["price"])
 
 
 def fetch_all_timeframes(symbol: str) -> dict:
