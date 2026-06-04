@@ -6,8 +6,7 @@ No API key required for market data.
 import requests
 import pandas as pd
 from datetime import datetime
-from config import BINANCE_BASE_URL
-
+from config import BINANCE_BASE_URL, BINANCE_FUTURES_URL
 
 def normalize_symbol(symbol: str) -> str:
     """Convert 'ETH' or 'eth' → 'ETHUSDT', keep 'ETHUSDT' as-is."""
@@ -29,7 +28,7 @@ def get_klines(symbol: str, interval: str, limit: int = 500) -> pd.DataFrame:
     Returns:
         DataFrame with columns: open, high, low, close, volume
     """
-    url = f"{BINANCE_BASE_URL}/api/v3/klines"
+    url = f"{BINANCE_FUTURES_URL}/fapi/v1/klines"
     params = {"symbol": symbol, "interval": interval, "limit": limit}
 
     try:
@@ -58,7 +57,7 @@ def get_klines(symbol: str, interval: str, limit: int = 500) -> pd.DataFrame:
 
 def get_current_price(symbol: str) -> float:
     """Get the latest ticker price for a symbol."""
-    url = f"{BINANCE_BASE_URL}/api/v3/ticker/price"
+    url = f"{BINANCE_FUTURES_URL}/fapi/v1/ticker/price"
     resp = requests.get(url, params={"symbol": symbol}, timeout=10)
     resp.raise_for_status()
     return float(resp.json()["price"])

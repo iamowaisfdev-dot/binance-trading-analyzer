@@ -147,7 +147,7 @@ def run(symbol_input: str):
         )
 
     # ── Print Output ──────────────────────────────────────────────────────────
-    now = datetime.utcnow().strftime("%Y-%m-%d  %H:%M UTC")
+    now = datetime.now().astimezone().strftime("%Y-%m-%d  %I:%M %p %Z")
     header(f"TRADE ANALYSIS  :  {symbol}")
 
     row("Coin",          W  + symbol)
@@ -255,6 +255,114 @@ def run(symbol_input: str):
     print()
 
 
+def run_scan(filepath: str):
+    """Scan all coins from file, stop at first trade signal."""
+    try:
+        with open(filepath, 'r') as f:
+            coins = [line.strip() for line in f if line.strip()]
+    except FileNotFoundError:
+        print(R + f"\n  ✗ File not found: {filepath}" + RESET)
+        return
+
+    total = len(coins)
+    print()
+    print(C + f"  📋 Scanning {total} coins for trade signal..." + RESET)
+    print(DIM + "  Will stop at first valid signal.\n" + RESET)
+
+    for i, coin in enumerate(coins, 1):
+        symbol = normalize_symbol(coin)
+        print(DIM + f"  [{i}/{total}] Analyzing {symbol}..." + RESET, end='\r')
+
+        try:
+            coin_tf    = fetch_all_timeframes(symbol)
+            coin_price = get_current_price(symbol)
+            btc_tf     = fetch_all_timeframes("BTCUSDT")
+            btc_price  = get_current_price("BTCUSDT")
+
+            coin_analysis = {tf: analyze_timeframe(df, coin_price) for tf, df in coin_tf.items()}
+            btc_analysis  = {tf: analyze_timeframe(df, btc_price)  for tf, df in btc_tf.items()}
+
+            news_items = fetch_news(coin)
+            news_txt   = news_summary(news_items)
+
+            has_claude = bool(ANTHROPIC_API_KEY and ANTHROPIC_API_KEY != "your_anthropic_api_key_here")
+            has_gemini = bool(GEMINI_API_KEY    and GEMINI_API_KEY    != "your_gemini_api_key_here")
+
+            if has_gemini and not has_claude:
+                result = get_trade_signal_gemini(symbol, coin_price, coin_analysis,
+                                                  btc_price, btc_analysis, news_txt)
+            else:
+                result = get_trade_signal(symbol, coin_price, coin_analysis,
+                                           btc_price, btc_analysis, news_txt)
+
+            if result.get("trade"):
+                # Clear the progress line
+                print(" " * 60, end='\r')
+                print(G + f"\n  ✅ Signal found on {symbol}!\n" + RESET)
+                print_signal_only(symbol, coin_price, result)
+                return
+
+        except Exception as e:
+            print(" " * 60, end='\r')
+            print(DIM + f"  [{i}/{total}] {symbol} — skipped ({str(e)[:40]})" + RESET)
+            continue
+
+    print(" " * 60, end='\r')
+    print()
+    print(Y + "  No trade signal found across all coins." + RESET)
+    print()
+
+
+def print_signal_only(symbol: str, coin_price: float, result: dict):
+    """Print only the trade signal — no news, no summary, no analysis."""
+    now = datetime.now().astimezone().strftime("%Y-%m-%d  %I:%M %p %Z")
+
+    direction = result.get("direction", "?")
+    dir_color = G if direction == "LONG" else R
+    dir_icon  = "📈" if direction == "LONG" else "📉"
+
+    header(f"{dir_icon} TRADE SIGNAL  :  {symbol}")
+
+    row("Coin",          W  + symbol)
+    row("Current Price", G  + f"${coin_price:,.4f}")
+    row("Signal Time",   DIM + now)
+    sep()
+
+    row("Direction",    dir_color + direction)
+    row("Entry Price",  W + f"${result['entry_price']:,.4f}")
+    row("Target Price", G + f"${result['target_price']:,.4f}")
+    row("Stop Loss",    R + f"${result['stop_loss']:,.4f}")
+
+    try:
+        entry  = result['entry_price']
+        target = result['target_price']
+        sl     = result['stop_loss']
+        if direction == "LONG":
+            rr = round((target - entry) / (entry - sl), 2)
+        else:
+            rr = round((entry - target) / (sl - entry), 2)
+        row("Risk:Reward", (G if rr >= 2 else Y) + f"1 : {rr}")
+    except Exception:
+        pass
+
+    tp_hours = result.get("expected_tp_hours")
+    if tp_hours:
+        days  = int(tp_hours // 24)
+        hours = int(tp_hours % 24)
+        tp_str = f"{days}d {hours}h" if days > 0 else f"{hours}h"
+        row("Expected TP Time", C + tp_str)
+
+    row("Leverage",   Y + f"{result.get('leverage', '?')}x")
+    row("Risk Score", risk_color(result.get("risk_score", 99)))
+    sep()
+    row("BTC Trend",  btc_trend_color(result.get("btc_trend", "NEUTRAL")))
+
+    print()
+    print(LINE)
+    print()
+
+
+
 # ─── Entry Point ──────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -270,5 +378,7 @@ if __name__ == "__main__":
         sym = input(C + "  Enter coin symbol: " + RESET).strip()
         if sym:
             run(sym)
+    elif sys.argv[1] == "--scan" and len(sys.argv) >= 3:
+        run_scan(sys.argv[2])
     else:
         run(sys.argv[1])

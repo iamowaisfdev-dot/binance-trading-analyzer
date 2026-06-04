@@ -157,11 +157,11 @@ def get_trade_signal_gemini(
     """Call Google Gemini API with all market data."""
     if not GEMINI_API_KEY:
         raise ValueError("GEMINI_API_KEY missing. Add it to your .env file.")
-
-    genai.configure(api_key=GEMINI_API_KEY)
+    prompt = build_prompt(symbol, current_price, coin_analysis,
+                          btc_price, btc_analysis, news_text)
     client = genai.Client(api_key=GEMINI_API_KEY)
     response = client.models.generate_content(
-        model="gemini-2.0-flash",
+        model="gemini-2.5-flash",
         contents=prompt
     )
     raw = response.text.strip()
