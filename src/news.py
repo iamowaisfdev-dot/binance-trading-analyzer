@@ -1,50 +1,63 @@
 """
-news.py — Fetch recent crypto news from CryptoPanic (free API).
-Falls back gracefully if no key is provided.
+news.py — Fetch crypto news from CoinDesk + CoinTelegraph FREE RSS feeds.
+No API key required.
 """
 
 import requests
-from config import CRYPTOPANIC_API_KEY
+import xml.etree.ElementTree as ET
+
+
+FEEDS = {
+    "CoinDesk"      : "https://www.coindesk.com/arc/outboundfeeds/rss/",
+    "CoinTelegraph" : "https://cointelegraph.com/rss",
+}
 
 
 def fetch_news(symbol: str, max_items: int = 8) -> list[dict]:
     """
-    Fetch recent news for a given coin.
-    symbol : base coin symbol e.g. 'ETH', 'BNB'  (not ETHUSDT)
-
-    Returns list of dicts: [{"title": ..., "sentiment": ..., "url": ...}, ...]
-    Returns empty list if no key / request fails.
+    Fetch recent news from CoinDesk + CoinTelegraph RSS.
+    Filters by coin symbol if possible, else returns latest headlines.
     """
-    if not CRYPTOPANIC_API_KEY or CRYPTOPANIC_API_KEY == "your_cryptopanic_api_key_here":
-        return []
-
-    # Strip USDT from symbol if present
     base = symbol.replace("USDT", "").replace("usdt", "").upper()
-
-    url = "https://cryptopanic.com/api/v1/posts/"
-    params = {
-        "auth_token" : CRYPTOPANIC_API_KEY,
-        "currencies" : base,
-        "kind"       : "news",
-        "public"     : "true",
-    }
-
-    try:
-        resp = requests.get(url, params=params, timeout=8)
-        resp.raise_for_status()
-        data = resp.json()
-    except Exception:
-        return []
-
     results = []
-    for item in data.get("results", [])[:max_items]:
-        results.append({
-            "title"    : item.get("title", ""),
-            "sentiment": item.get("votes", {}).get("positive", 0) - item.get("votes", {}).get("negative", 0),
-            "url"      : item.get("url", ""),
-        })
 
-    return results
+    for source, url in FEEDS.items():
+        try:
+            resp = requests.get(url, timeout=8, headers={"User-Agent": "Mozilla/5.0"})
+            resp.raise_for_status()
+            root = ET.fromstring(resp.content)
+
+            items = root.findall(".//item")
+            for item in items:
+                title = item.findtext("title", "").strip()
+                link  = item.findtext("link", "").strip()
+                desc  = item.findtext("description", "").strip()
+
+                # Filter: prefer coin-related news, fallback to general crypto
+                combined = (title + desc).upper()
+                relevant = base in combined or any(
+                    k in combined for k in ["BITCOIN", "CRYPTO", "BTC", "ALTCOIN", "MARKET"]
+                )
+
+                if relevant and title:
+                    results.append({
+                        "title"    : title,
+                        "source"   : source,
+                        "sentiment": 0,  # RSS has no vote data, AI will judge from text
+                        "url"      : link,
+                    })
+
+        except Exception:
+            continue  # If one feed fails, other still works
+
+    # Deduplicate by title, return latest max_items
+    seen, unique = set(), []
+    for item in results:
+        if item["title"] not in seen:
+            seen.add(item["title"])
+            unique.append(item)
+
+    return unique[:max_items]
 
 
 def news_summary(news_items: list[dict]) -> str:
@@ -53,6 +66,5 @@ def news_summary(news_items: list[dict]) -> str:
         return "No news data available."
     lines = []
     for i, n in enumerate(news_items, 1):
-        sent = "↑" if n["sentiment"] > 0 else ("↓" if n["sentiment"] < 0 else "→")
-        lines.append(f"{i}. [{sent}] {n['title']}")
+        lines.append(f"{i}. [{n['source']}] {n['title']}")
     return "\n".join(lines)

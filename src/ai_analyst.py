@@ -87,6 +87,7 @@ Respond ONLY with valid JSON, no markdown, no explanation outside JSON:
   "btc_trend": "BULLISH" or "BEARISH" or "NEUTRAL",
   "news_sentiment": "POSITIVE" or "NEGATIVE" or "NEUTRAL",
   "key_reasons": ["reason 1", "reason 2", "reason 3"],
+  "expected_tp_hours": number or null,
   "no_trade_reason": "explanation if trade is false, else null",
   "analysis_summary": "2-3 sentence overall market read"
 }}"""

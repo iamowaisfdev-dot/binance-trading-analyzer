@@ -164,6 +164,17 @@ def run(symbol_input: str):
         except Exception:
             pass
 
+        # Expected TP Time
+        tp_hours = result.get("expected_tp_hours")
+        if tp_hours:
+            days  = int(tp_hours // 24)
+            hours = int(tp_hours % 24)
+            if days > 0:
+                tp_str = f"{days}d {hours}h"
+            else:
+                tp_str = f"{hours}h"
+            row("Expected TP Time", C + tp_str)
+
         row("Leverage",    Y + f"{result.get('leverage', '?')}x")
         row("Risk Score",  risk_color(result.get("risk_score", 99)))
 
