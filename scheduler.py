@@ -17,7 +17,7 @@ from src.indicators  import analyze_timeframe
 from src.news        import fetch_news, news_summary
 from src.ai_analyst  import get_trade_signal, get_trade_signal_gemini
 from src.notifier    import send_whatsapp, format_signal_message
-from config          import ANTHROPIC_API_KEY, GEMINI_API_KEY
+from config          import ANTHROPIC_API_KEY, GEMINI_API_KEY, CALLMEBOT_PHONE
 
 PKT = pytz.timezone("Asia/Karachi")
 
