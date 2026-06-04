@@ -1,2 +1,7 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Sensitive environment variables
+.env
+.env.local
+.env.mode.*
+
+# Do NOT ignore the example file so other developers know what keys to use
+!.env.example
