@@ -5,7 +5,7 @@ ai_analyst.py — Send full market context to Claude and get a structured trade 
 import json
 import numpy as np
 import anthropic
-import google.generativeai as genai
+from google import genai
 from config import GEMINI_API_KEY
 from config import ANTHROPIC_API_KEY
 
@@ -159,12 +159,11 @@ def get_trade_signal_gemini(
         raise ValueError("GEMINI_API_KEY missing. Add it to your .env file.")
 
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel("gemini-1.5-flash")
-
-    prompt = build_prompt(symbol, current_price, coin_analysis,
-                          btc_price, btc_analysis, news_text)
-
-    response = model.generate_content(prompt)
+    client = genai.Client(api_key=GEMINI_API_KEY)
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=prompt
+    )
     raw = response.text.strip()
 
     if raw.startswith("```"):
