@@ -140,7 +140,7 @@ if __name__ == "__main__":
     print(f"  🕐 Current PKT Time: {now}")
     print(f"  📅 Schedule: Mon-Fri  |  1:00 PM + 9:00 PM PKT")
     print(f"  📱 WhatsApp notifications: {'ON' if CALLMEBOT_PHONE else 'OFF'}")
-    print("  🔄 Running backtest on startup...\n")
+    print("Running backtest on startup...\n")
     from backtest import run_backtest
     run_backtest("ADA")
     print(f"\n  ⏳ Backtest complete. Scheduler now active — waiting for 1PM/9PM PKT...\n")
