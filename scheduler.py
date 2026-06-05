@@ -141,7 +141,8 @@ if __name__ == "__main__":
     print(f"  📅 Schedule: Mon-Fri  |  1:00 PM + 9:00 PM PKT")
     print(f"  📱 WhatsApp notifications: {'ON' if CALLMEBOT_PHONE else 'OFF'}")
     print(f"  ⏳ Waiting for next scheduled run...\n")
-
+    print("  🔄 Running immediate scan on startup...\n")
+    run_scheduled_scan()
     try:
         scheduler.start()
     except (KeyboardInterrupt, SystemExit):
