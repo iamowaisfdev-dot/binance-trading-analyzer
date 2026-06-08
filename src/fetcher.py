@@ -76,3 +76,22 @@ def fetch_all_timeframes(symbol: str) -> dict:
     for interval, limit in limits.items():
         data[interval] = get_klines(symbol, interval, limit)
     return data
+
+    def get_funding_rate(symbol: str) -> dict:
+    """Fetch current funding rate for a futures symbol."""
+    url = f"{BINANCE_FUTURES_URL}/fapi/v1/fundingRate"
+    try:
+        resp = requests.get(url, params={"symbol": symbol, "limit": 1}, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+        if data:
+            rate = float(data[0]['fundingRate']) * 100  # Convert to percentage
+            return {
+                "rate"      : round(rate, 4),
+                "sentiment" : "OVERLEVERAGED LONG"  if rate >  0.05 else
+                              "OVERLEVERAGED SHORT" if rate < -0.05 else
+                              "NEUTRAL"
+            }
+    except Exception:
+        pass
+    return {"rate": 0, "sentiment": "NEUTRAL"}

@@ -11,7 +11,7 @@ from datetime import datetime
 from colorama import init, Fore, Style, Back
 
 # ── Local imports ─────────────────────────────────────────────────────────────
-from src.fetcher     import normalize_symbol, fetch_all_timeframes, get_current_price
+from src.fetcher     import normalize_symbol, fetch_all_timeframes, get_current_price, get_funding_rate
 from src.indicators  import analyze_timeframe
 from src.news        import fetch_news, news_summary
 from src.ai_analyst  import get_trade_signal, get_trade_signal_gemini
@@ -108,8 +108,9 @@ def run(symbol_input: str):
     print(DIM + "  Fetching news..." + RESET)
 
     # ── News ──────────────────────────────────────────────────────────────────
-    news_items = fetch_news(base)
-    news_txt   = news_summary(news_items)
+    news_items   = fetch_news(base)
+    news_txt     = news_summary(news_items)
+    funding_rate = get_funding_rate(symbol)
 
      # ── AI Selection ─────────────────────────────────────────────────────────
     has_claude  = bool(ANTHROPIC_API_KEY and ANTHROPIC_API_KEY != "your_anthropic_api_key_here")
@@ -137,13 +138,13 @@ def run(symbol_input: str):
         print(DIM + "  Asking Gemini to analyze everything...\n" + RESET)
         result = get_trade_signal_gemini(
             symbol, coin_price, coin_analysis,
-            btc_price, btc_analysis, news_txt
+            btc_price, btc_analysis, news_txt, funding_rate
         )
     else:
         print(DIM + "  Asking Claude to analyze everything...\n" + RESET)
         result = get_trade_signal(
             symbol, coin_price, coin_analysis,
-            btc_price, btc_analysis, news_txt
+            btc_price, btc_analysis, news_txt, funding_rate
         )
 
     # ── Print Output ──────────────────────────────────────────────────────────
@@ -289,13 +290,13 @@ def run_scan(filepath: str):
 
             has_claude = bool(ANTHROPIC_API_KEY and ANTHROPIC_API_KEY != "your_anthropic_api_key_here")
             has_gemini = bool(GEMINI_API_KEY    and GEMINI_API_KEY    != "your_gemini_api_key_here")
-
+            funding_rate = get_funding_rate(symbol)
             if has_gemini and not has_claude:
                 result = get_trade_signal_gemini(symbol, coin_price, coin_analysis,
-                                                  btc_price, btc_analysis, news_txt)
+                                                  btc_price, btc_analysis, news_txt, funding_rate)
             else:
                 result = get_trade_signal(symbol, coin_price, coin_analysis,
-                                           btc_price, btc_analysis, news_txt)
+                                           btc_price, btc_analysis, news_txt, funding_rate)
 
             if result.get("trade"):
                 # Quality filters — reject weak signals

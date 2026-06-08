@@ -22,10 +22,11 @@ class _NumpyEncoder(json.JSONEncoder):
 def build_prompt(
     symbol: str,
     current_price: float,
-    coin_analysis: dict,   # {"1h": {...}, "4h": {...}, "1d": {...}}
+    coin_analysis: dict,
     btc_price: float,
     btc_analysis: dict,
     news_text: str,
+    funding_rate: dict = None,
 ) -> str:
 
     def fmt(d):
@@ -74,6 +75,15 @@ BTC Price: {btc_price}
 ── BTC 1D ──
 {fmt(btc_analysis['1d'])}
 
+═══════════════════════════════════════
+FUNDING RATE:
+Rate: {funding_rate.get('rate', 0) if funding_rate else 'N/A'}%
+Sentiment: {funding_rate.get('sentiment', 'NEUTRAL') if funding_rate else 'N/A'}
+
+Note: Positive funding = longs paying shorts (market overleveraged long = SHORT opportunity)
+Negative funding = shorts paying longs (market overleveraged short = LONG opportunity)
+═══════════════════════════════════════
+
 ═══════════════════════════════════
 RECENT NEWS:
 {news_text}
@@ -106,6 +116,7 @@ def get_trade_signal(
     btc_price: float,
     btc_analysis: dict,
     news_text: str,
+    funding_rate: dict = None,
 ) -> dict:
     """
     Call Claude API with all market data.
@@ -117,7 +128,7 @@ def get_trade_signal(
     client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
     prompt = build_prompt(symbol, current_price, coin_analysis,
-                          btc_price, btc_analysis, news_text)
+                          btc_price, btc_analysis, news_text, funding_rate)
 
     message = client.messages.create(
         model="claude-sonnet-4-20250514",
@@ -157,12 +168,13 @@ def get_trade_signal_gemini(
     btc_price: float,
     btc_analysis: dict,
     news_text: str,
+    funding_rate: dict = None,
 ) -> dict:
     """Call Google Gemini API with all market data."""
     if not GEMINI_API_KEY:
         raise ValueError("GEMINI_API_KEY missing. Add it to your .env file.")
     prompt = build_prompt(symbol, current_price, coin_analysis,
-                          btc_price, btc_analysis, news_text)
+                          btc_price, btc_analysis, news_text, funding_rate)
     client = genai.Client(api_key=GEMINI_API_KEY)
     response = client.models.generate_content(
         model="gemini-3.1-flash-lite",

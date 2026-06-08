@@ -12,7 +12,7 @@ from apscheduler.triggers.cron       import CronTrigger
 from datetime                        import datetime
 import pytz
 
-from src.fetcher     import normalize_symbol, fetch_all_timeframes, get_current_price
+from src.fetcher     import normalize_symbol, fetch_all_timeframes, get_current_price, get_funding_rate
 from src.indicators  import analyze_timeframe
 from src.news        import fetch_news, news_summary
 from src.ai_analyst  import get_trade_signal, get_trade_signal_gemini
@@ -61,13 +61,13 @@ def run_scheduled_scan():
 
             news_items = fetch_news(coin)
             news_txt   = news_summary(news_items)
-
+            funding_rate = get_funding_rate(symbol)
             if has_gemini and not has_claude:
                 result = get_trade_signal_gemini(symbol, coin_price, coin_analysis,
-                                                  btc_price, btc_analysis, news_txt)
+                                                  btc_price, btc_analysis, news_txt, funding_rate)
             else:
                 result = get_trade_signal(symbol, coin_price, coin_analysis,
-                                           btc_price, btc_analysis, news_txt)
+                                           btc_price, btc_analysis, news_txt, funding_rate)
 
             if result.get("trade"):
                 # Quality filter
@@ -132,6 +132,12 @@ scheduler.add_job(
 scheduler.add_job(
     run_scheduled_scan,
     trigger=CronTrigger(hour=21, minute=0, day_of_week="mon-fri", timezone=PKT)
+)
+
+# 5 PM PKT — Monday to Friday
+scheduler.add_job(
+    run_scheduled_scan,
+    trigger=CronTrigger(hour=17, minute=0, day_of_week="mon-fri", timezone=PKT)
 )
 
 if __name__ == "__main__":
