@@ -694,7 +694,412 @@ def ema_crossover(series: pd.Series) -> dict:
         "signal"     : f"{alignment}" + (f" | {', '.join(crossover_names)}" if crossover_names else "")
     }
 
+def confluence_score(analysis: dict) -> dict:
+    """
+    Confluence Score — kitne indicators ek direction mein agree kar rahe hain.
+    Score: 0-100
+    0-30   = STRONG BEARISH
+    31-45  = BEARISH
+    46-54  = NEUTRAL
+    55-70  = BULLISH
+    71-100 = STRONG BULLISH
+    """
+    bull_score = 0
+    bear_score = 0
+    reasons    = []
 
+    # ── 1. Trend Label (Weight: 15) ──────────────────────────────────────────
+    trend = analysis.get("trend", "")
+    if "STRONG BULLISH" in trend:
+        bull_score += 15
+        reasons.append("Trend: STRONG BULLISH (+15)")
+    elif "BULLISH" in trend:
+        bull_score += 10
+        reasons.append("Trend: BULLISH (+10)")
+    elif "STRONG BEARISH" in trend:
+        bear_score += 15
+        reasons.append("Trend: STRONG BEARISH (-15)")
+    elif "BEARISH" in trend:
+        bear_score += 10
+        reasons.append("Trend: BEARISH (-10)")
+
+    # ── 2. EMA Alignment (Weight: 15) ────────────────────────────────────────
+    ema_cross = analysis.get("ema_crossover", {})
+    alignment = ema_cross.get("alignment", "")
+    if "FULL BULLISH" in alignment:
+        bull_score += 15
+        reasons.append("EMA: Full bullish alignment (+15)")
+    elif "BULLISH ALIGNMENT" in alignment:
+        bull_score += 8
+        reasons.append("EMA: Bullish alignment (+8)")
+    elif "FULL BEARISH" in alignment:
+        bear_score += 15
+        reasons.append("EMA: Full bearish alignment (-15)")
+    elif "BEARISH ALIGNMENT" in alignment:
+        bear_score += 8
+        reasons.append("EMA: Bearish alignment (-8)")
+
+    crossovers = ema_cross.get("crossovers", [])
+    if "GOLDEN CROSS" in crossovers:
+        bull_score += 10
+        reasons.append("EMA: Golden Cross (+10)")
+    if "DEATH CROSS" in crossovers:
+        bear_score += 10
+        reasons.append("EMA: Death Cross (-10)")
+    if "BULLISH EMA CROSS" in crossovers:
+        bull_score += 5
+        reasons.append("EMA: Bullish short-term cross (+5)")
+    if "BEARISH EMA CROSS" in crossovers:
+        bear_score += 5
+        reasons.append("EMA: Bearish short-term cross (-5)")
+
+    # ── 3. MACD (Weight: 10) ─────────────────────────────────────────────────
+    macd_data = analysis.get("macd", {})
+    hist = macd_data.get("histogram", 0)
+    macd_line = macd_data.get("macd", 0)
+    if hist > 0 and macd_line > 0:
+        bull_score += 10
+        reasons.append("MACD: Bullish histogram (+10)")
+    elif hist > 0:
+        bull_score += 5
+        reasons.append("MACD: Histogram positive (+5)")
+    elif hist < 0 and macd_line < 0:
+        bear_score += 10
+        reasons.append("MACD: Bearish histogram (-10)")
+    elif hist < 0:
+        bear_score += 5
+        reasons.append("MACD: Histogram negative (-5)")
+
+    # ── 4. RSI (Weight: 10) ──────────────────────────────────────────────────
+    rsi_val = analysis.get("rsi", 50)
+    if rsi_val < 30:
+        bull_score += 10
+        reasons.append(f"RSI: Oversold {rsi_val} (+10)")
+    elif rsi_val < 45:
+        bull_score += 5
+        reasons.append(f"RSI: Low {rsi_val} (+5)")
+    elif rsi_val > 70:
+        bear_score += 10
+        reasons.append(f"RSI: Overbought {rsi_val} (-10)")
+    elif rsi_val > 55:
+        bear_score += 5
+        reasons.append(f"RSI: High {rsi_val} (-5)")
+
+    # ── 5. Stochastic RSI (Weight: 10) ───────────────────────────────────────
+    stoch = analysis.get("stochastic_rsi", {})
+    zone  = stoch.get("zone", "NEUTRAL")
+    if zone == "OVERSOLD":
+        bull_score += 10
+        reasons.append("StochRSI: Oversold (+10)")
+    elif zone == "BULLISH CROSS":
+        bull_score += 7
+        reasons.append("StochRSI: Bullish cross (+7)")
+    elif zone == "OVERBOUGHT":
+        bear_score += 10
+        reasons.append("StochRSI: Overbought (-10)")
+    elif zone == "BEARISH CROSS":
+        bear_score += 7
+        reasons.append("StochRSI: Bearish cross (-7)")
+
+    # ── 6. RSI Divergence (Weight: 10) ───────────────────────────────────────
+    div = analysis.get("rsi_divergence", {})
+    div_type     = div.get("type", "NONE")
+    div_strength = div.get("strength", "NONE")
+    if div_type == "BULLISH":
+        pts = 10 if div_strength == "STRONG" else 7 if div_strength == "MODERATE" else 4
+        bull_score += pts
+        reasons.append(f"RSI Divergence: BULLISH {div_strength} (+{pts})")
+    elif div_type == "BEARISH":
+        pts = 10 if div_strength == "STRONG" else 7 if div_strength == "MODERATE" else 4
+        bear_score += pts
+        reasons.append(f"RSI Divergence: BEARISH {div_strength} (-{pts})")
+
+    # ── 7. Market Structure (Weight: 10) ─────────────────────────────────────
+    ms  = analysis.get("market_structure", {})
+    bos = ms.get("bos", "NONE")
+    struct = ms.get("structure", "NEUTRAL")
+    if bos == "BULLISH BOS":
+        bull_score += 10
+        reasons.append("Structure: Bullish BOS (+10)")
+    elif "BULLISH" in struct:
+        bull_score += 6
+        reasons.append("Structure: Bullish HH+HL (+6)")
+    elif bos == "BEARISH BOS":
+        bear_score += 10
+        reasons.append("Structure: Bearish BOS (-10)")
+    elif "BEARISH" in struct:
+        bear_score += 6
+        reasons.append("Structure: Bearish LH+LL (-6)")
+
+    # ── 8. Candlestick Patterns (Weight: 8) ──────────────────────────────────
+    cp   = analysis.get("candlestick_patterns", {})
+    bias = cp.get("bias", "NEUTRAL")
+    if bias == "STRONG BULLISH":
+        bull_score += 8
+        reasons.append("Candles: Strong bullish patterns (+8)")
+    elif bias == "BULLISH":
+        bull_score += 5
+        reasons.append("Candles: Bullish patterns (+5)")
+    elif bias == "STRONG BEARISH":
+        bear_score += 8
+        reasons.append("Candles: Strong bearish patterns (-8)")
+    elif bias == "BEARISH":
+        bear_score += 5
+        reasons.append("Candles: Bearish patterns (-5)")
+
+    # ── 9. Volume (Weight: 6) ────────────────────────────────────────────────
+    vol = analysis.get("volume", {})
+    vol_ratio = vol.get("ratio_vs_avg", 1.0)
+    if vol_ratio >= 1.5:
+        bull_score += 3
+        bear_score += 3
+        reasons.append(f"Volume: High conviction {vol_ratio}x (+3 both)")
+    elif vol_ratio < 0.7:
+        bear_score += 4
+        reasons.append(f"Volume: Low conviction {vol_ratio}x (-4)")
+
+    # ── 10. Volume Profile POC (Weight: 6) ───────────────────────────────────
+    vp  = analysis.get("volume_profile", {})
+    vp_signal = vp.get("signal", "")
+    if "ABOVE POC" in vp_signal:
+        bull_score += 6
+        reasons.append("Vol Profile: Price above POC (+6)")
+    elif "BELOW POC" in vp_signal:
+        bear_score += 6
+        reasons.append("Vol Profile: Price below POC (-6)")
+    elif "AT POC" in vp_signal:
+        bull_score += 2
+        bear_score += 2
+        reasons.append("Vol Profile: Price at POC (+2 both)")
+
+    # ── Final Score ───────────────────────────────────────────────────────────
+    total      = bull_score + bear_score
+    net_bull   = bull_score - bear_score
+    # Normalize to 0-100 (50 = neutral)
+    if total == 0:
+        score = 50
+    else:
+        score = round(50 + (net_bull / max(total, 30)) * 50)
+        score = max(0, min(100, score))
+
+    if score >= 71:
+        label     = "STRONG BULLISH"
+        direction = "LONG"
+    elif score >= 55:
+        label     = "BULLISH"
+        direction = "LONG"
+    elif score <= 29:
+        label     = "STRONG BEARISH"
+        direction = "SHORT"
+    elif score <= 45:
+        label     = "BEARISH"
+        direction = "SHORT"
+    else:
+        label     = "NEUTRAL"
+        direction = "WAIT"
+
+    return {
+        "score"    : score,
+        "label"    : label,
+        "direction": direction,
+        "bull_pts" : bull_score,
+        "bear_pts" : bear_score,
+        "reasons"  : reasons[:5],  # Top 5 reasons
+        "signal"   : f"CONFLUENCE {score}/100 — {label} | Suggested: {direction}"
+    }
+
+def vwap(df: pd.DataFrame) -> dict:
+    """
+    VWAP — Volume Weighted Average Price.
+    Institutions is level pe buy/sell karte hain.
+    Price above VWAP = bullish, below = bearish.
+    """
+    typical_price = (df['high'] + df['low'] + df['close']) / 3
+    cum_vol       = df['volume'].cumsum()
+    cum_tp_vol    = (typical_price * df['volume']).cumsum()
+
+    vwap_series   = cum_tp_vol / cum_vol
+    vwap_val      = round(vwap_series.iloc[-1], 4)
+    current_price = df['close'].iloc[-1]
+
+    distance_pct  = round((current_price - vwap_val) / vwap_val * 100, 2)
+
+    if current_price > vwap_val * 1.02:
+        signal = f"PRICE ABOVE VWAP ({vwap_val}) — Bullish bias, VWAP is support"
+        bias   = "BULLISH"
+    elif current_price < vwap_val * 0.98:
+        signal = f"PRICE BELOW VWAP ({vwap_val}) — Bearish bias, VWAP is resistance"
+        bias   = "BEARISH"
+    else:
+        signal = f"PRICE AT VWAP ({vwap_val}) — At equilibrium, watch for breakout"
+        bias   = "NEUTRAL"
+
+    return {
+        "vwap"        : vwap_val,
+        "distance_pct": distance_pct,
+        "bias"        : bias,
+        "signal"      : signal
+    }
+
+
+def supertrend(df: pd.DataFrame, period: int = 10, multiplier: float = 3.0) -> dict:
+    """
+    Supertrend Indicator — ATR based trend following.
+    Very popular in crypto — clear BUY/SELL signals.
+    """
+    hl2    = (df['high'] + df['low']) / 2
+    atr_s  = atr(df, period)
+
+    upper_band = hl2 + multiplier * atr_s
+    lower_band = hl2 - multiplier * atr_s
+
+    supertrend_vals = pd.Series(index=df.index, dtype=float)
+    direction_vals  = pd.Series(index=df.index, dtype=int)
+
+    for i in range(len(df)):
+        if i < period:
+            supertrend_vals.iloc[i] = upper_band.iloc[i]
+            direction_vals.iloc[i]  = -1
+            continue
+
+        prev_st  = supertrend_vals.iloc[i - 1]
+        prev_dir = direction_vals.iloc[i - 1]
+        close    = df['close'].iloc[i]
+
+        # Calculate final upper and lower bands
+        final_upper = upper_band.iloc[i]
+        final_lower = lower_band.iloc[i]
+
+        if lower_band.iloc[i] > lower_band.iloc[i - 1] or df['close'].iloc[i - 1] < prev_st:
+            pass
+        else:
+            final_lower = lower_band.iloc[i - 1]
+
+        if upper_band.iloc[i] < upper_band.iloc[i - 1] or df['close'].iloc[i - 1] > prev_st:
+            pass
+        else:
+            final_upper = upper_band.iloc[i - 1]
+
+        if prev_dir == -1 and close < final_lower:
+            direction_vals.iloc[i]  = 1
+            supertrend_vals.iloc[i] = final_upper
+        elif prev_dir == 1 and close > final_upper:
+            direction_vals.iloc[i]  = -1
+            supertrend_vals.iloc[i] = final_lower
+        elif prev_dir == -1:
+            direction_vals.iloc[i]  = -1
+            supertrend_vals.iloc[i] = final_lower
+        else:
+            direction_vals.iloc[i]  = 1
+            supertrend_vals.iloc[i] = final_upper
+
+    st_val    = round(supertrend_vals.iloc[-1], 4)
+    direction = direction_vals.iloc[-1]
+    prev_dir  = direction_vals.iloc[-2] if len(direction_vals) > 1 else direction
+
+    # Signal
+    if direction == -1 and prev_dir == 1:
+        signal = f"SUPERTREND BUY SIGNAL — Flipped bullish at {st_val}"
+        bias   = "STRONG BULLISH"
+    elif direction == 1 and prev_dir == -1:
+        signal = f"SUPERTREND SELL SIGNAL — Flipped bearish at {st_val}"
+        bias   = "STRONG BEARISH"
+    elif direction == -1:
+        signal = f"SUPERTREND BULLISH — Price above {st_val}"
+        bias   = "BULLISH"
+    else:
+        signal = f"SUPERTREND BEARISH — Price below {st_val}"
+        bias   = "BEARISH"
+
+    return {
+        "value"    : st_val,
+        "direction": "BULLISH" if direction == -1 else "BEARISH",
+        "bias"     : bias,
+        "signal"   : signal,
+        "flipped"  : bool(direction != prev_dir)
+    }
+
+def adx(df: pd.DataFrame, period: int = 14) -> dict:
+    """
+    ADX — Average Directional Index.
+    Trend strength measure karta hai (not direction).
+    ADX > 25 = Strong trend
+    ADX > 40 = Very strong trend
+    ADX < 20 = Sideways / No trend
+    +DI > -DI = Bullish direction
+    -DI > +DI = Bearish direction
+    """
+    high  = df['high']
+    low   = df['low']
+    close = df['close']
+
+    # True Range
+    prev_close = close.shift(1)
+    tr = pd.concat([
+        high - low,
+        (high - prev_close).abs(),
+        (low  - prev_close).abs()
+    ], axis=1).max(axis=1)
+
+    # Directional Movement
+    up_move   = high.diff()
+    down_move = -low.diff()
+
+    plus_dm  = pd.Series(np.where((up_move > down_move) & (up_move > 0), up_move,   0), index=df.index)
+    minus_dm = pd.Series(np.where((down_move > up_move) & (down_move > 0), down_move, 0), index=df.index)
+
+    # Smooth with EWM
+    atr_s     = tr.ewm(com=period - 1, adjust=False).mean()
+    plus_di   = 100 * plus_dm.ewm(com=period - 1, adjust=False).mean()  / atr_s
+    minus_di  = 100 * minus_dm.ewm(com=period - 1, adjust=False).mean() / atr_s
+
+    # DX and ADX
+    di_sum  = plus_di + minus_di
+    di_diff = (plus_di - minus_di).abs()
+    dx      = (di_diff / di_sum.replace(0, np.nan)) * 100
+    adx_series = dx.ewm(com=period - 1, adjust=False).mean()
+
+    adx_val  = round(adx_series.iloc[-1], 2)
+    plus_val = round(plus_di.iloc[-1],    2)
+    minus_val= round(minus_di.iloc[-1],   2)
+
+    # Trend strength label
+    if adx_val >= 40:
+        strength = "VERY STRONG TREND"
+    elif adx_val >= 25:
+        strength = "STRONG TREND"
+    elif adx_val >= 20:
+        strength = "DEVELOPING TREND"
+    else:
+        strength = "WEAK / SIDEWAYS"
+
+    # Direction
+    if plus_val > minus_val:
+        direction = "BULLISH"
+        signal = f"ADX {adx_val} ({strength}) — +DI {plus_val} > -DI {minus_val} — Bullish direction"
+    else:
+        direction = "BEARISH"
+        signal = f"ADX {adx_val} ({strength}) — -DI {minus_val} > +DI {plus_val} — Bearish direction"
+
+    # Trade recommendation
+    if adx_val >= 25 and plus_val > minus_val:
+        trade_signal = "STRONG BULLISH TREND — Good for LONG"
+    elif adx_val >= 25 and minus_val > plus_val:
+        trade_signal = "STRONG BEARISH TREND — Good for SHORT"
+    elif adx_val < 20:
+        trade_signal = "SIDEWAYS MARKET — Avoid trend trades"
+    else:
+        trade_signal = "WEAK TREND — Wait for confirmation"
+
+    return {
+        "adx"         : adx_val,
+        "plus_di"     : plus_val,
+        "minus_di"    : minus_val,
+        "strength"    : strength,
+        "direction"   : direction,
+        "signal"      : signal,
+        "trade_signal": trade_signal
+    }
 
 # ─── Full Summary for One Timeframe ──────────────────────────────────────────
 
@@ -746,6 +1151,21 @@ def analyze_timeframe(df: pd.DataFrame, current_price: float) -> dict:
     candle_patterns = detect_candlestick_patterns(df)
     stoch_rsi     = stochastic_rsi(close)
     ema_cross     = ema_crossover(close)
+    conf_score = confluence_score({
+        "trend"              : trend_label(close),
+        "ema_crossover"      : ema_cross,
+        "macd"               : {"macd": macd_val, "signal": sig_val, "histogram": hist_val},
+        "rsi"                : rsi_val,
+        "stochastic_rsi"     : stoch_rsi,
+        "rsi_divergence"     : divergence,
+        "market_structure"   : mkt_structure,
+        "candlestick_patterns": candle_patterns,
+        "volume"             : {"ratio_vs_avg": vol_ratio},
+        "volume_profile"     : vol_profile,
+    })
+    vwap_data      = vwap(df)
+    supertrend_data = supertrend(df)
+    adx_data = adx(df)
     return {
         "trend"      : trend_label(close),
         "ema"        : {"9": e9, "21": e21, "50": e50, "200": e200},
@@ -762,4 +1182,8 @@ def analyze_timeframe(df: pd.DataFrame, current_price: float) -> dict:
         "candlestick_patterns": candle_patterns,
         "stochastic_rsi"      : stoch_rsi,
         "ema_crossover"       : ema_cross,
+        "confluence_score"    : conf_score,
+        "vwap"             : vwap_data,
+        "supertrend"       : supertrend_data,
+        "adx"              : adx_data,
     }
