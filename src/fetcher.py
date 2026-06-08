@@ -65,7 +65,7 @@ def fetch_all_timeframes(symbol: str) -> dict:
     Fetch 1h / 4h / 1d data for the last ~30 days.
     Returns dict with keys '1h', '4h', '1d' → DataFrames.
     """
-    limits = {"1h": 720, "4h": 180, "1d": 30}
+    limits = {"1h": 720, "4h": 180, "1d": 30, "1w": 12}
     data = {}
     for interval, limit in limits.items():
         data[interval] = get_klines(symbol, interval, limit)

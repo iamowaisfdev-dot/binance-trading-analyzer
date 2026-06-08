@@ -41,7 +41,7 @@ STRICT RULES:
 - Entry price MUST be current market price or the predictive price which will hit soon like support or resistance price.
 - Stop Loss must be based on ATR — not tighter than 1x ATR from entry.
 - Minimum Risk:Reward ratio is 2:1 — reject any setup below this.
-- Maximum risk score allowed is 45 — if setup scores higher, say NO TRADE.
+- Maximum risk score allowed is 55 — if setup scores higher, say NO TRADE.
 - Leverage maximum 10x, only if trend is confirmed on 4h and 1d both.
 - In sideways or choppy market (RSI between 45-55 on all timeframes), say NO TRADE.
 - BTC bearish: SHORT signals only if coin also shows clear weakness on 4h chart.
@@ -63,6 +63,9 @@ Current Price: {current_price}
 ── 1D ANALYSIS ──
 {fmt(coin_analysis['1d'])}
 
+── 1W ANALYSIS (Macro Trend) ──
+{fmt(coin_analysis['1w'])}
+
 ═══════════════════════════════════
 BTC (Market Context)
 BTC Price: {btc_price}
@@ -76,6 +79,9 @@ BTC Price: {btc_price}
 
 ── BTC 1D ──
 {fmt(btc_analysis['1d'])}
+
+── BTC 1W (Macro Trend) ──
+{fmt(btc_analysis['1w'])}
 
 ═══════════════════════════════════════
 FUNDING RATE:

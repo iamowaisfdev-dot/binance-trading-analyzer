@@ -73,7 +73,7 @@ def run_scheduled_scan():
 
             if result.get("trade"):
                 # Quality filter
-                risk_ok = result.get("risk_score", 99) <= 55
+                risk_ok  = result.get("risk_score", 99) <= 55
                 rr_ok   = False
                 rr      = 0
                 try:
