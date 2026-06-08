@@ -126,23 +126,12 @@ def run_scheduled_scan():
 
 scheduler = BlockingScheduler(timezone=PKT)
 
-# 1 PM PKT — Monday to Friday
-scheduler.add_job(
-    run_scheduled_scan,
-    trigger=CronTrigger(hour=13, minute=0, day_of_week="mon-fri", timezone=PKT)
-)
-
-# 5 PM PKT — Monday to Friday
-scheduler.add_job(
-    run_scheduled_scan,
-    trigger=CronTrigger(hour=17, minute=0, day_of_week="mon-fri", timezone=PKT)
-)
-
-# 9 PM PKT — Monday to Friday
-scheduler.add_job(
-    run_scheduled_scan,
-    trigger=CronTrigger(hour=21, minute=0, day_of_week="mon-fri", timezone=PKT)
-)
+# Every 2 hours — 12PM to 2AM PKT — Monday to Friday
+for hour in [12, 15, 18, 21, 0, 2]:
+    scheduler.add_job(
+        run_scheduled_scan,
+        trigger=CronTrigger(hour=hour, minute=0, day_of_week="mon-fri", timezone=PKT)
+    )
 
 if __name__ == "__main__":
     now = datetime.now(PKT).strftime("%Y-%m-%d %I:%M %p PKT")
