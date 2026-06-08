@@ -47,12 +47,12 @@ STRICT RULES:
 - In sideways or choppy market (RSI between 45-55 on all timeframes), say NO TRADE.
 - BTC bearish: SHORT signals only if coin also shows clear weakness on 4h chart.
 - BTC bullish: LONG signals only if coin shows clear strength on 4h chart.
-- If volume is below average on 1h and 4h, say NO TRADE — no conviction in move.
+- If volume is below 0.5x average on both 1h and 4h, say NO TRADE. Slightly low volume is acceptable if other indicators are strong.
 - Expected TP time minimum 6 hours — please avoid very short scalps.
-- Only give a signal when at least 2 out of 3 timeframes (1h, 4h, 1d) agree on direction.
 - RSI Divergence is a strong signal — BULLISH divergence on 4h or 1d = consider LONG even in downtrend.
 - BEARISH divergence on 4h or 1d = consider SHORT even in uptrend.
 - STRONG divergence overrides volume rule — give signal even if volume is slightly below average.
+- If confluence_score is above 65 (BULLISH) or below 35 (BEARISH), this is a strong signal — prioritize it over individual conflicting indicators.
 ═══════════════════════════════════
 COIN: {symbol}
 Current Price: {current_price}
@@ -113,7 +113,7 @@ Note: 0-25 Extreme Fear = LONG opportunity. 75-100 Extreme Greed = SHORT opportu
 BTC DOMINANCE:
 Dominance: {btc_dominance.get('dominance', 50) if btc_dominance else 'N/A'}%
 Signal: {btc_dominance.get('signal', 'NEUTRAL') if btc_dominance else 'N/A'}
-Note: Dominance >55% = alts weak, prefer BTC trades or SHORT alts.
+Note: Dominance >60% = prefer SHORT alts. 55-60% = caution on longs but still possible if coin shows strength.
 Dominance <45% = altseason, LONG alts opportunity.
 ═══════════════════════════════════════
 RECENT NEWS:
