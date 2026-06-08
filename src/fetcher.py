@@ -90,3 +90,42 @@ def get_funding_rate(symbol: str) -> dict:
     except Exception:
         pass
     return {"rate": 0, "sentiment": "NEUTRAL"}
+
+def get_open_interest(symbol: str) -> dict:
+    """Fetch current open interest for a futures symbol."""
+    url = f"{BINANCE_FUTURES_URL}/fapi/v1/openInterest"
+    try:
+        resp = requests.get(url, params={"symbol": symbol}, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+        oi = float(data['openInterest'])
+
+        # Get OI history to check trend (last 10 periods)
+        hist_url = f"{BINANCE_FUTURES_URL}/futures/data/openInterestHist"
+        hist_resp = requests.get(hist_url, params={
+            "symbol": symbol, "period": "1h", "limit": 10
+        }, timeout=10)
+        hist_resp.raise_for_status()
+        hist = hist_resp.json()
+
+        if len(hist) >= 2:
+            oi_old = float(hist[0]['sumOpenInterest'])
+            oi_new = float(hist[-1]['sumOpenInterest'])
+            change_pct = round((oi_new - oi_old) / oi_old * 100, 2)
+        else:
+            change_pct = 0
+
+        trend = "INCREASING" if change_pct > 1 else \
+                "DECREASING" if change_pct < -1 else "STABLE"
+
+        return {
+            "current"    : round(oi, 2),
+            "change_pct" : change_pct,
+            "trend"      : trend,
+            "signal"     : "BEARISH CONFIRMATION"  if trend == "INCREASING" else
+                           "TREND WEAKENING"        if trend == "DECREASING" else
+                           "NEUTRAL"
+        }
+    except Exception:
+        pass
+    return {"current": 0, "change_pct": 0, "trend": "UNKNOWN", "signal": "NEUTRAL"}

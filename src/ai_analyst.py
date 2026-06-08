@@ -27,6 +27,7 @@ def build_prompt(
     btc_analysis: dict,
     news_text: str,
     funding_rate: dict = None,
+    open_interest: dict = None,
 ) -> str:
 
     def fmt(d):
@@ -45,7 +46,7 @@ STRICT RULES:
 - BTC bearish: SHORT signals only if coin also shows clear weakness on 4h chart.
 - BTC bullish: LONG signals only if coin shows clear strength on 4h chart.
 - If volume is below average on 1h and 4h, say NO TRADE — no conviction in move.
-- Expected TP time minimum 12 hours — no scalp trades.
+- Expected TP time minimum 6 hours — please avoid very short scalps.
 
 ═══════════════════════════════════
 COIN: {symbol}
@@ -83,7 +84,14 @@ Sentiment: {funding_rate.get('sentiment', 'NEUTRAL') if funding_rate else 'N/A'}
 Note: Positive funding = longs paying shorts (market overleveraged long = SHORT opportunity)
 Negative funding = shorts paying longs (market overleveraged short = LONG opportunity)
 ═══════════════════════════════════════
+OPEN INTEREST:
+Current OI: {open_interest.get('current', 'N/A') if open_interest else 'N/A'}
+Change (10h): {open_interest.get('change_pct', 0) if open_interest else 'N/A'}%
+Trend: {open_interest.get('trend', 'UNKNOWN') if open_interest else 'N/A'}
+Signal: {open_interest.get('signal', 'NEUTRAL') if open_interest else 'N/A'}
 
+Note: Rising OI + falling price = strong downtrend. Rising OI + rising price = strong uptrend.
+Falling OI = trend losing strength, possible reversal.
 ═══════════════════════════════════
 RECENT NEWS:
 {news_text}
@@ -117,6 +125,7 @@ def get_trade_signal(
     btc_analysis: dict,
     news_text: str,
     funding_rate: dict = None,
+    open_interest: dict = None,
 ) -> dict:
     """
     Call Claude API with all market data.
@@ -128,7 +137,7 @@ def get_trade_signal(
     client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
     prompt = build_prompt(symbol, current_price, coin_analysis,
-                          btc_price, btc_analysis, news_text, funding_rate)
+                          btc_price, btc_analysis, news_text, funding_rate, open_interest)
 
     message = client.messages.create(
         model="claude-sonnet-4-20250514",
@@ -169,12 +178,13 @@ def get_trade_signal_gemini(
     btc_analysis: dict,
     news_text: str,
     funding_rate: dict = None,
+    open_interest: dict = None,
 ) -> dict:
     """Call Google Gemini API with all market data."""
     if not GEMINI_API_KEY:
         raise ValueError("GEMINI_API_KEY missing. Add it to your .env file.")
     prompt = build_prompt(symbol, current_price, coin_analysis,
-                          btc_price, btc_analysis, news_text, funding_rate)
+                          btc_price, btc_analysis, news_text, funding_rate, open_interest)
     client = genai.Client(api_key=GEMINI_API_KEY)
     response = client.models.generate_content(
         model="gemini-3.1-flash-lite",
