@@ -102,6 +102,87 @@ def trend_label(close: pd.Series) -> str:
         return "NEUTRAL / RANGING"
 
 
+def detect_rsi_divergence(df: pd.DataFrame, lookback: int = 14) -> dict:
+    """
+    Detect RSI divergence — bullish or bearish.
+    
+    Bullish divergence: Price making lower lows but RSI making higher lows
+    Bearish divergence: Price making higher highs but RSI making lower highs
+    """
+    close  = df['close']
+    rsi_series = rsi(close)
+
+    # Get last N candles
+    prices = close.tail(lookback).values
+    rsi_vals = rsi_series.tail(lookback).values
+
+    # Remove NaN
+    valid = ~(np.isnan(prices) | np.isnan(rsi_vals))
+    prices   = prices[valid]
+    rsi_vals = rsi_vals[valid]
+
+    if len(prices) < 6:
+        return {"type": "NONE", "strength": "NONE", "signal": "NO DIVERGENCE DETECTED"}
+
+    # Find last 2 swing lows (for bullish divergence)
+    def find_swing_lows(arr, n=3):
+        lows = []
+        for i in range(n, len(arr) - n):
+            if all(arr[i] <= arr[i-j] for j in range(1, n+1)) and \
+               all(arr[i] <= arr[i+j] for j in range(1, n+1)):
+                lows.append((i, arr[i]))
+        return lows[-2:] if len(lows) >= 2 else []
+
+    def find_swing_highs(arr, n=3):
+        highs = []
+        for i in range(n, len(arr) - n):
+            if all(arr[i] >= arr[i-j] for j in range(1, n+1)) and \
+               all(arr[i] >= arr[i+j] for j in range(1, n+1)):
+                highs.append((i, arr[i]))
+        return highs[-2:] if len(highs) >= 2 else []
+
+    price_lows  = find_swing_lows(prices)
+    price_highs = find_swing_highs(prices)
+
+    # Bullish divergence check
+    if len(price_lows) == 2:
+        p1_idx, p1_val = price_lows[0]
+        p2_idx, p2_val = price_lows[1]
+        r1_val = rsi_vals[p1_idx]
+        r2_val = rsi_vals[p2_idx]
+
+        # Price lower low but RSI higher low = bullish divergence
+        if p2_val < p1_val and r2_val > r1_val:
+            diff = round(r2_val - r1_val, 2)
+            strength = "STRONG" if diff > 5 else "MODERATE" if diff > 2 else "WEAK"
+            return {
+                "type"    : "BULLISH",
+                "strength": strength,
+                "signal"  : f"BULLISH DIVERGENCE ({strength}) — Potential reversal UP. RSI +{diff} vs lower price low."
+            }
+
+    # Bearish divergence check
+    if len(price_highs) == 2:
+        p1_idx, p1_val = price_highs[0]
+        p2_idx, p2_val = price_highs[1]
+        r1_val = rsi_vals[p1_idx]
+        r2_val = rsi_vals[p2_idx]
+
+        # Price higher high but RSI lower high = bearish divergence
+        if p2_val > p1_val and r2_val < r1_val:
+            diff = round(r1_val - r2_val, 2)
+            strength = "STRONG" if diff > 5 else "MODERATE" if diff > 2 else "WEAK"
+            return {
+                "type"    : "BEARISH",
+                "strength": strength,
+                "signal"  : f"BEARISH DIVERGENCE ({strength}) — Potential reversal DOWN. RSI -{diff} vs higher price high."
+            }
+
+    return {"type": "NONE", "strength": "NONE", "signal": "NO DIVERGENCE DETECTED"}
+
+
+
+
 # ─── Full Summary for One Timeframe ──────────────────────────────────────────
 
 def analyze_timeframe(df: pd.DataFrame, current_price: float) -> dict:
@@ -146,7 +227,7 @@ def analyze_timeframe(df: pd.DataFrame, current_price: float) -> dict:
 
     # Support / Resistance
     levels = find_levels(df, current_price=current_price)
-
+    divergence = detect_rsi_divergence(df)
     return {
         "trend"      : trend_label(close),
         "ema"        : {"9": e9, "21": e21, "50": e50, "200": e200},
@@ -157,4 +238,5 @@ def analyze_timeframe(df: pd.DataFrame, current_price: float) -> dict:
         "volume"     : {"current": vol_cur, "avg_20": vol_avg, "ratio_vs_avg": vol_ratio},
         "levels"     : levels,
         "last_5_candles": last5,
+        "rsi_divergence": divergence,
     }

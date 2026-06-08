@@ -49,7 +49,10 @@ STRICT RULES:
 - BTC bullish: LONG signals only if coin shows clear strength on 4h chart.
 - If volume is below average on 1h and 4h, say NO TRADE — no conviction in move.
 - Expected TP time minimum 6 hours — please avoid very short scalps.
-
+- Only give a signal when at least 2 out of 3 timeframes (1h, 4h, 1d) agree on direction.
+- RSI Divergence is a strong signal — BULLISH divergence on 4h or 1d = consider LONG even in downtrend.
+- BEARISH divergence on 4h or 1d = consider SHORT even in uptrend.
+- STRONG divergence overrides volume rule — give signal even if volume is slightly below average.
 ═══════════════════════════════════
 COIN: {symbol}
 Current Price: {current_price}
