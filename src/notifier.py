@@ -46,17 +46,27 @@ def format_signal_message(symbol: str, price: float, result: dict) -> str:
     except Exception:
         rr_str = "N/A"
 
+    # Key reasons
+    reasons = result.get('key_reasons', [])
+    reasons_str = ""
+    if reasons:
+        reasons_str = "\n\n📋 *Reasons:*\n" + "\n".join(f"• {r}" for r in reasons[:3])
+
+    # Analysis summary
+    summary = result.get('analysis_summary', '')
+    summary_str = f"\n\n💬 *Summary:*\n{summary}" if summary else ""
+
     msg = f"""{icon} *TRADE SIGNAL — {symbol}*
 
-💰 Price:     {price:,.4f}
+💰 Price:     {price:,.4f} USDT
 📊 Direction: {direction}
-🎯 Entry:     {result['entry_price']:,.4f}
-✅ Target:    {result['target_price']:,.4f}
-❌ SL:        {result['stop_loss']:,.4f}
+🎯 Entry:     {result['entry_price']:,.4f} USDT
+✅ Target:    {result['target_price']:,.4f} USDT
+❌ SL:        {result['stop_loss']:,.4f} USDT
 ⚖️ R:R:       {rr_str}
 ⏱ TP Time:   {tp_str}
 🔧 Leverage:  {result.get('leverage', '?')}x
 ⚠️ Risk:      {result.get('risk_score')}/100
-📈 BTC:       {result.get('btc_trend')}"""
+📈 BTC:       {result.get('btc_trend')}{reasons_str}{summary_str}"""
 
     return msg
