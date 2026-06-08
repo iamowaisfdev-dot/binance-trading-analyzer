@@ -16,7 +16,7 @@ from src.indicators  import analyze_timeframe
 from src.news        import fetch_news, news_summary
 from src.ai_analyst  import get_trade_signal, get_trade_signal_gemini
 from src.notifier    import send_whatsapp, format_signal_message
-from src.fetcher import normalize_symbol, fetch_all_timeframes, get_current_price, get_funding_rate, get_open_interest, get_fear_greed
+from src.fetcher import normalize_symbol, fetch_all_timeframes, get_current_price, get_funding_rate, get_open_interest, get_fear_greed, get_btc_dominance
 from config          import ANTHROPIC_API_KEY, GEMINI_API_KEY, CALLMEBOT_PHONE
 
 PKT = pytz.timezone("Asia/Karachi")
@@ -64,12 +64,13 @@ def run_scheduled_scan():
             funding_rate = get_funding_rate(symbol)
             open_interest = get_open_interest(symbol)
             fear_greed = get_fear_greed()
+            btc_dominance = get_btc_dominance()
             if has_gemini and not has_claude:
                 result = get_trade_signal_gemini(symbol, coin_price, coin_analysis,
-                                                  btc_price, btc_analysis, news_txt, funding_rate, open_interest, fear_greed)
+                                                  btc_price, btc_analysis, news_txt, funding_rate, open_interest, fear_greed, btc_dominance)
             else:
                 result = get_trade_signal(symbol, coin_price, coin_analysis,
-                                           btc_price, btc_analysis, news_txt, funding_rate, open_interest, fear_greed)
+                                           btc_price, btc_analysis, news_txt, funding_rate, open_interest, fear_greed, btc_dominance)
 
             if result.get("trade"):
                 # Quality filter

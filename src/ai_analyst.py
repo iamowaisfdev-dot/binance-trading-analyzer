@@ -29,6 +29,7 @@ def build_prompt(
     funding_rate: dict = None,
     open_interest: dict = None,
     fear_greed: dict = None,
+    btc_dominance: dict = None,
 ) -> str:
 
     def fmt(d):
@@ -106,6 +107,12 @@ Label: {fear_greed.get('label', 'Neutral') if fear_greed else 'N/A'}
 Signal: {fear_greed.get('signal', 'NEUTRAL') if fear_greed else 'N/A'}
 Note: 0-25 Extreme Fear = LONG opportunity. 75-100 Extreme Greed = SHORT opportunity.
 ═══════════════════════════════════
+BTC DOMINANCE:
+Dominance: {btc_dominance.get('dominance', 50) if btc_dominance else 'N/A'}%
+Signal: {btc_dominance.get('signal', 'NEUTRAL') if btc_dominance else 'N/A'}
+Note: Dominance >55% = alts weak, prefer BTC trades or SHORT alts.
+Dominance <45% = altseason, LONG alts opportunity.
+═══════════════════════════════════════
 RECENT NEWS:
 {news_text}
 ═══════════════════════════════════
@@ -140,6 +147,7 @@ def get_trade_signal(
     funding_rate: dict = None,
     open_interest: dict = None,
     fear_greed: dict = None,
+    btc_dominance: dict = None,
 ) -> dict:
     """
     Call Claude API with all market data.
@@ -151,7 +159,7 @@ def get_trade_signal(
     client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
     prompt = build_prompt(symbol, current_price, coin_analysis,
-                          btc_price, btc_analysis, news_text, funding_rate, open_interest, fear_greed)
+                          btc_price, btc_analysis, news_text, funding_rate, open_interest, fear_greed, btc_dominance)
 
     message = client.messages.create(
         model="claude-sonnet-4-20250514",
@@ -194,12 +202,13 @@ def get_trade_signal_gemini(
     funding_rate: dict = None,
     open_interest: dict = None,
     fear_greed: dict = None,
+    btc_dominance: dict = None,
 ) -> dict:
     """Call Google Gemini API with all market data."""
     if not GEMINI_API_KEY:
         raise ValueError("GEMINI_API_KEY missing. Add it to your .env file.")
     prompt = build_prompt(symbol, current_price, coin_analysis,
-                          btc_price, btc_analysis, news_text, funding_rate, open_interest, fear_greed)
+                          btc_price, btc_analysis, news_text, funding_rate, open_interest, fear_greed, btc_dominance)
     client = genai.Client(api_key=GEMINI_API_KEY)
     response = client.models.generate_content(
         model="gemini-3.1-flash-lite",

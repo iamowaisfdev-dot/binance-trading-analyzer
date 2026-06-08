@@ -13,7 +13,7 @@ from colorama import init, Fore, Style, Back
 # ── Local imports ─────────────────────────────────────────────────────────────
 from src.indicators  import analyze_timeframe
 from src.news        import fetch_news, news_summary
-from src.fetcher import normalize_symbol, fetch_all_timeframes, get_current_price, get_funding_rate, get_open_interest, get_fear_greed
+from src.fetcher import normalize_symbol, fetch_all_timeframes, get_current_price, get_funding_rate, get_open_interest, get_fear_greed, get_btc_dominance
 from src.ai_analyst  import get_trade_signal, get_trade_signal_gemini
 from config          import ANTHROPIC_API_KEY, GEMINI_API_KEY
 from src.notifier import send_whatsapp, format_signal_message
@@ -113,6 +113,7 @@ def run(symbol_input: str):
     funding_rate = get_funding_rate(symbol)
     open_interest = get_open_interest(symbol)
     fear_greed = get_fear_greed()
+    btc_dominance = get_btc_dominance()
      # ── AI Selection ─────────────────────────────────────────────────────────
     has_claude  = bool(ANTHROPIC_API_KEY and ANTHROPIC_API_KEY != "your_anthropic_api_key_here")
     has_gemini  = bool(GEMINI_API_KEY    and GEMINI_API_KEY    != "your_gemini_api_key_here")
@@ -139,13 +140,13 @@ def run(symbol_input: str):
         print(DIM + "  Asking Gemini to analyze everything...\n" + RESET)
         result = get_trade_signal_gemini(
             symbol, coin_price, coin_analysis,
-            btc_price, btc_analysis, news_txt, funding_rate, open_interest, fear_greed
+            btc_price, btc_analysis, news_txt, funding_rate, open_interest, fear_greed, btc_dominance
         )
     else:
         print(DIM + "  Asking Claude to analyze everything...\n" + RESET)
         result = get_trade_signal(
             symbol, coin_price, coin_analysis,
-            btc_price, btc_analysis, news_txt, funding_rate, open_interest, fear_greed
+            btc_price, btc_analysis, news_txt, funding_rate, open_interest, fear_greed, btc_dominance
         )
 
     # ── Print Output ──────────────────────────────────────────────────────────
@@ -286,12 +287,13 @@ def run_scan(filepath: str):
             funding_rate = get_funding_rate(symbol)
             open_interest = get_open_interest(symbol)
             fear_greed = get_fear_greed()
+            btc_dominance = get_btc_dominance()
             if has_gemini and not has_claude:
                 result = get_trade_signal_gemini(symbol, coin_price, coin_analysis,
-                                                  btc_price, btc_analysis, news_txt, funding_rate, open_interest, fear_greed)
+                                                  btc_price, btc_analysis, news_txt, funding_rate, open_interest, fear_greed, btc_dominance)
             else:
                 result = get_trade_signal(symbol, coin_price, coin_analysis,
-                                           btc_price, btc_analysis, news_txt, funding_rate, open_interest, fear_greed)
+                                           btc_price, btc_analysis, news_txt, funding_rate, open_interest, fear_greed, btc_dominance)
 
             if result.get("trade"):
                 # Quality filters — reject weak signals

@@ -151,3 +151,21 @@ def get_fear_greed() -> dict:
     except Exception:
         pass
     return {"value": 50, "label": "Neutral", "signal": "NEUTRAL"}
+
+def get_btc_dominance() -> dict:
+    """Fetch BTC Dominance from CoinGecko (free, no key needed)."""
+    url = "https://api.coingecko.com/api/v3/global"
+    try:
+        resp = requests.get(url, timeout=8)
+        resp.raise_for_status()
+        data = resp.json()['data']
+        dominance = round(data['market_cap_percentage']['btc'], 2)
+        return {
+            "dominance" : dominance,
+            "signal"    : "ALTS WEAK — BTC DOMINANCE HIGH"  if dominance > 55 else
+                          "ALTS STRONG — BTC DOMINANCE LOW"  if dominance < 45 else
+                          "NEUTRAL"
+        }
+    except Exception:
+        pass
+    return {"dominance": 50, "signal": "NEUTRAL"}
