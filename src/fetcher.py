@@ -2,11 +2,11 @@
 fetcher.py — Fetch OHLCV candle data from Binance public API.
 No API key required for market data.
 """
-
 import requests
 import pandas as pd
 from datetime import datetime
 from config import BINANCE_BASE_URL, BINANCE_FUTURES_URL
+
 
 def normalize_symbol(symbol: str) -> str:
     """Convert 'ETH' or 'eth' → 'ETHUSDT', keep 'ETHUSDT' as-is."""
@@ -19,18 +19,15 @@ def normalize_symbol(symbol: str) -> str:
 def get_klines(symbol: str, interval: str, limit: int = 500) -> pd.DataFrame:
     """
     Fetch candlestick data from Binance.
-
     Args:
         symbol   : e.g. 'ETHUSDT'
         interval : '1h', '4h', '1d'
         limit    : number of candles (max 1000)
-
     Returns:
         DataFrame with columns: open, high, low, close, volume
     """
     url = f"{BINANCE_FUTURES_URL}/fapi/v1/klines"
     params = {"symbol": symbol, "interval": interval, "limit": limit}
-
     try:
         resp = requests.get(url, params=params, timeout=10)
         resp.raise_for_status()
@@ -39,18 +36,15 @@ def get_klines(symbol: str, interval: str, limit: int = 500) -> pd.DataFrame:
             raise ValueError(f"Symbol '{symbol}' not found on Binance. "
                              f"Check the symbol name (e.g. BTCUSDT, ETHUSDT).")
         raise e
-
     raw = resp.json()
     df = pd.DataFrame(raw, columns=[
         'timestamp', 'open', 'high', 'low', 'close', 'volume',
         'close_time', 'quote_volume', 'trades',
         'taker_buy_base', 'taker_buy_quote', 'ignore'
     ])
-
     df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
     for col in ['open', 'high', 'low', 'close', 'volume']:
         df[col] = df[col].astype(float)
-
     df.set_index('timestamp', inplace=True)
     return df[['open', 'high', 'low', 'close', 'volume']]
 
@@ -77,7 +71,8 @@ def fetch_all_timeframes(symbol: str) -> dict:
         data[interval] = get_klines(symbol, interval, limit)
     return data
 
-    def get_funding_rate(symbol: str) -> dict:
+
+def get_funding_rate(symbol: str) -> dict:
     """Fetch current funding rate for a futures symbol."""
     url = f"{BINANCE_FUTURES_URL}/fapi/v1/fundingRate"
     try:
