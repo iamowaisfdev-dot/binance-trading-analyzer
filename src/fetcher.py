@@ -129,3 +129,25 @@ def get_open_interest(symbol: str) -> dict:
     except Exception:
         pass
     return {"current": 0, "change_pct": 0, "trend": "UNKNOWN", "signal": "NEUTRAL"}
+
+def get_fear_greed() -> dict:
+    """Fetch Fear & Greed Index from alternative.me (free, no key needed)."""
+    url = "https://api.alternative.me/fng/?limit=1"
+    try:
+        resp = requests.get(url, timeout=8)
+        resp.raise_for_status()
+        data = resp.json()['data'][0]
+        value      = int(data['value'])
+        classif    = data['value_classification']
+        return {
+            "value"    : value,
+            "label"    : classif,
+            "signal"   : "STRONG LONG OPPORTUNITY"  if value <= 25 else
+                         "LONG OPPORTUNITY"          if value <= 40 else
+                         "STRONG SHORT OPPORTUNITY"  if value >= 75 else
+                         "SHORT OPPORTUNITY"         if value >= 60 else
+                         "NEUTRAL"
+        }
+    except Exception:
+        pass
+    return {"value": 50, "label": "Neutral", "signal": "NEUTRAL"}
