@@ -70,3 +70,27 @@ def format_signal_message(symbol: str, price: float, result: dict) -> str:
 📈 BTC:       {result.get('btc_trend')}{reasons_str}{summary_str}"""
 
     return msg
+
+def format_watch_message(symbol: str, price: float, result: dict) -> str:
+    direction  = result.get("watch_direction", "?")
+    icon       = "📈" if direction == "LONG" else "📉"
+    prob       = result.get("watch_probability", "MEDIUM")
+    reason     = result.get("watch_reason", "")
+    entry      = result.get("watch_entry")
+    entry_str  = f"{entry:,.4f} USDT" if entry else "TBD"
+
+    prob_icon = "🔴" if prob == "HIGH" else "🟡" if prob == "MEDIUM" else "🟢"
+
+    msg = f"""👀 *WATCH SIGNAL — {symbol}*
+
+📊 Direction:    {direction} (developing)
+{prob_icon} Probability:  {prob}
+🎯 Watch Entry:  {entry_str}
+💰 Current:      {price:,.4f} USDT
+
+📋 *Conditions needed:*
+{reason}
+
+⚠️ NOT a confirmed trade — monitor only."""
+
+    return msg
