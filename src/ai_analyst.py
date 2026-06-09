@@ -53,6 +53,9 @@ STRICT RULES:
 - BEARISH divergence on 4h or 1d = consider SHORT even in uptrend.
 - STRONG divergence overrides volume rule — give signal even if volume is slightly below average.
 - If confluence_score is above 65 (BULLISH) or below 35 (BEARISH), this is a strong signal — prioritize it over individual conflicting indicators.
+- If no confirmed trade but market shows developing setup, set watch_signal: true with direction and conditions needed.
+- watch_signal should only be true if at least 1 strong indicator points to a direction.
+- Be specific about what needs to happen for watch to become confirmed trade.
 ═══════════════════════════════════
 COIN: {symbol}
 Current Price: {current_price}
@@ -135,6 +138,11 @@ Respond ONLY with valid JSON, no markdown, no explanation outside JSON:
   "news_sentiment": "POSITIVE" or "NEGATIVE" or "NEUTRAL",
   "key_reasons": ["reason 1", "reason 2", "reason 3"],
   "expected_tp_hours": number or null,
+  "watch_signal": true or false,
+  "watch_direction": "LONG" or "SHORT" or null,
+  "watch_reason": "why this could develop into a trade, conditions needed",
+  "watch_entry": number or null,
+  "watch_probability": "HIGH" or "MEDIUM" or "LOW",
   "no_trade_reason": "explanation if trade is false, else null",
   "analysis_summary": "2-3 sentence overall market read"
 }}"""
