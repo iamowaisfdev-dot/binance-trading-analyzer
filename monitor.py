@@ -110,7 +110,7 @@ def check_signal(symbol: str, coin_analysis: dict,
     atr_4h = tf_4h.get("atr", 0)
 
     # ── ADX check ───────────────────────────────────────────────────────────
-    if adx_4h < 18 and adx_1d < 18:
+    if adx_4h < 22 and adx_1d < 20:
         reasons_no_signal.append(f"ADX too low ({adx_4h}) — sideways market, no trend")
 
     # ── Volume check ────────────────────────────────────────────────────────
@@ -184,7 +184,17 @@ def check_signal(symbol: str, coin_analysis: dict,
     if btc_bullish:
         short_score = 0
 
-    if long_score >= 4 and long_score > short_score:
+    long_tf_count  = sum([conf_1h >= 58, conf_4h >= 60, conf_1d >= 58])
+    short_tf_count = sum([conf_1h <= 42, conf_4h <= 40, conf_1d <= 42])
+
+    if long_score >= 5 and long_tf_count < 2:
+        reasons_no_signal.append(f"LONG: Only {long_tf_count}/3 timeframes agree")
+        long_score = 0
+
+    if short_score >= 5 and short_tf_count < 2:
+        reasons_no_signal.append(f"SHORT: Only {short_tf_count}/3 timeframes agree")
+        short_score = 0
+    if long_score >= 5 and long_score > short_score:
         # Calculate entry/TP/SL
         entry = coin_price
         sl    = round(entry - (atr_4h * 1.5), 6)
@@ -206,7 +216,7 @@ def check_signal(symbol: str, coin_analysis: dict,
         else:
             reasons_no_signal.append(f"LONG setup but RR too low ({rr})")
 
-    elif short_score >= 4 and short_score > long_score:
+    elif short_score >= 5 and short_score > long_score:
         entry = coin_price
         sl    = round(entry + (atr_4h * 1.5), 6)
         tp    = round(entry - (atr_4h * 3.0), 6)
