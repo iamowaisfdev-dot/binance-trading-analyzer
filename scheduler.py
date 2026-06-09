@@ -11,11 +11,10 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 from datetime import datetime
 import pytz
-
 from src.indicators import analyze_timeframe
 from src.news import fetch_news, news_summary
 from src.ai_analyst import get_trade_signal, get_trade_signal_gemini
-from src.notifier import send_whatsapp, format_signal_message
+from src.notifier import send_whatsapp, format_signal_message, format_watch_message
 from src.fetcher import normalize_symbol, fetch_all_timeframes, get_current_price, get_funding_rate, get_open_interest, get_fear_greed, get_btc_dominance
 from config import ANTHROPIC_API_KEY, GEMINI_API_KEY, CALLMEBOT_PHONE
 
@@ -118,8 +117,51 @@ def run_scheduled_scan():
     print(" " * 60, end="\r")
 
     if signals_found == 0:
-        print("\n  No trade signals found today.\n")
-        send_whatsapp("🔍 Scan complete — No valid trade signals found.")
+            print("\n  No trade signals found today.\n")
+
+            # Check for watch signals
+            watch_msgs = []
+            for coin in coins:
+                symbol = normalize_symbol(coin)
+                try:
+                    time.sleep(5)
+                    coin_tf    = fetch_all_timeframes(symbol)
+                    coin_price = get_current_price(symbol)
+                    btc_tf     = fetch_all_timeframes("BTCUSDT")
+                    btc_price  = get_current_price("BTCUSDT")
+                    coin_analysis = {tf: analyze_timeframe(df, coin_price) for tf, df in coin_tf.items()}
+                    btc_analysis  = {tf: analyze_timeframe(df, btc_price)  for tf, df in btc_tf.items()}
+                    news_items = fetch_news(coin)
+                    news_txt   = news_summary(news_items)
+                    funding_rate  = get_funding_rate(symbol)
+                    open_interest = get_open_interest(symbol)
+                    fear_greed    = get_fear_greed()
+                    btc_dominance = get_btc_dominance()
+
+                    if has_gemini and not has_claude:
+                        result = get_trade_signal_gemini(symbol, coin_price, coin_analysis,
+                                                          btc_price, btc_analysis, news_txt,
+                                                          funding_rate, open_interest, fear_greed, btc_dominance)
+                    else:
+                        result = get_trade_signal(symbol, coin_price, coin_analysis,
+                                                   btc_price, btc_analysis, news_txt,
+                                                   funding_rate, open_interest, fear_greed, btc_dominance)
+
+                    if result.get("watch_signal") and result.get("watch_direction"):
+                        watch_msgs.append((symbol, coin_price, result))
+                        if len(watch_msgs) >= 2:
+                            break
+
+                except Exception:
+                    continue
+
+            if watch_msgs:
+                for symbol, coin_price, result in watch_msgs:
+                    msg = format_watch_message(symbol, coin_price, result)
+                    send_whatsapp(msg)
+                    print(f"  👀 Watch signal sent for {symbol}")
+            else:
+                send_whatsapp("🔍 Scan complete — No signals or watch setups found.")
 
 
 # ── Scheduler Setup ───────────────────────────────────────────────────────────
