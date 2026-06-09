@@ -1,8 +1,7 @@
 """
-scheduler.py — Runs coin scan at 1PM, 5PM, and 9PM Pakistan Time, Monday-Friday.
+scheduler.py — Runs coin scan Monday-Friday, every 3 hours 12PM to 3AM PKT.
 Deploy this on Railway: worker: python scheduler.py
 """
-
 import sys
 import os
 sys.path.insert(0, os.path.dirname(__file__))
@@ -36,12 +35,13 @@ def run_scheduled_scan():
         print("  ✗ coins.txt not found!")
         return
 
-    total = len(coins)
+    total         = len(coins)
     signals_found = 0
-    max_signals = 3
+    max_signals   = 3
+    watch_list    = []  # Collect watch signals during main scan
 
     has_claude = bool(ANTHROPIC_API_KEY and ANTHROPIC_API_KEY != "your_anthropic_api_key_here")
-    has_gemini = bool(GEMINI_API_KEY and GEMINI_API_KEY != "your_gemini_api_key_here")
+    has_gemini = bool(GEMINI_API_KEY    and GEMINI_API_KEY    != "your_gemini_api_key_here")
 
     print(f"  📋 Scanning {total} coins...\n")
 
@@ -49,38 +49,46 @@ def run_scheduled_scan():
         symbol = normalize_symbol(coin)
         print(f"  [{i}/{total}] Analyzing {symbol}...", end="\r")
         time.sleep(5)
+
         try:
-            coin_tf = fetch_all_timeframes(symbol)
+            coin_tf    = fetch_all_timeframes(symbol)
             coin_price = get_current_price(symbol)
-            btc_tf = fetch_all_timeframes("BTCUSDT")
-            btc_price = get_current_price("BTCUSDT")
+            btc_tf     = fetch_all_timeframes("BTCUSDT")
+            btc_price  = get_current_price("BTCUSDT")
 
             coin_analysis = {tf: analyze_timeframe(df, coin_price) for tf, df in coin_tf.items()}
-            btc_analysis = {tf: analyze_timeframe(df, btc_price) for tf, df in btc_tf.items()}
+            btc_analysis  = {tf: analyze_timeframe(df, btc_price)  for tf, df in btc_tf.items()}
 
-            news_items = fetch_news(coin)
-            news_txt = news_summary(news_items)
-            funding_rate = get_funding_rate(symbol)
+            news_items    = fetch_news(coin)
+            news_txt      = news_summary(news_items)
+            funding_rate  = get_funding_rate(symbol)
             open_interest = get_open_interest(symbol)
-            fear_greed = get_fear_greed()
+            fear_greed    = get_fear_greed()
             btc_dominance = get_btc_dominance()
-            
+
             if has_gemini and not has_claude:
                 result = get_trade_signal_gemini(symbol, coin_price, coin_analysis,
-                                                 btc_price, btc_analysis, news_txt, funding_rate, open_interest, fear_greed, btc_dominance)
+                                                 btc_price, btc_analysis, news_txt,
+                                                 funding_rate, open_interest, fear_greed, btc_dominance)
             else:
                 result = get_trade_signal(symbol, coin_price, coin_analysis,
-                                          btc_price, btc_analysis, news_txt, funding_rate, open_interest, fear_greed, btc_dominance)
+                                          btc_price, btc_analysis, news_txt,
+                                          funding_rate, open_interest, fear_greed, btc_dominance)
+
+            # Collect watch signals during main scan (no extra API calls)
+            if not result.get("trade") and result.get("watch_signal") and \
+               result.get("watch_direction") and len(watch_list) < 2:
+                watch_list.append((symbol, coin_price, result))
 
             if result.get("trade"):
                 # Quality filter
                 risk_ok = result.get("risk_score", 99) <= 55
-                rr_ok = False
-                rr = 0.0
+                rr_ok   = False
+                rr      = 0.0
                 try:
-                    entry = result["entry_price"]
-                    target = result["target_price"]
-                    sl = result["stop_loss"]
+                    entry     = result["entry_price"]
+                    target    = result["target_price"]
+                    sl        = result["stop_loss"]
                     direction = result.get("direction")
                     if direction == "LONG":
                         rr = (target - entry) / (entry - sl) if (entry - sl) != 0 else 0
@@ -101,7 +109,7 @@ def run_scheduled_scan():
                 print(f"     {result.get('direction')} | Entry: {result['entry_price']} | TP: {result['target_price']} | SL: {result['stop_loss']}")
 
                 # WhatsApp
-                msg = format_signal_message(symbol, coin_price, result)
+                msg  = format_signal_message(symbol, coin_price, result)
                 sent = send_whatsapp(msg)
                 print(f"     📱 WhatsApp: {'Sent ✓' if sent else 'Failed ✗'}")
 
@@ -117,59 +125,24 @@ def run_scheduled_scan():
     print(" " * 60, end="\r")
 
     if signals_found == 0:
-            print("\n  No trade signals found today.\n")
+        print("\n  No confirmed trade signals found.\n")
 
-            # Check for watch signals
-            watch_msgs = []
-            for coin in coins:
-                symbol = normalize_symbol(coin)
-                try:
-                    time.sleep(5)
-                    coin_tf    = fetch_all_timeframes(symbol)
-                    coin_price = get_current_price(symbol)
-                    btc_tf     = fetch_all_timeframes("BTCUSDT")
-                    btc_price  = get_current_price("BTCUSDT")
-                    coin_analysis = {tf: analyze_timeframe(df, coin_price) for tf, df in coin_tf.items()}
-                    btc_analysis  = {tf: analyze_timeframe(df, btc_price)  for tf, df in btc_tf.items()}
-                    news_items = fetch_news(coin)
-                    news_txt   = news_summary(news_items)
-                    funding_rate  = get_funding_rate(symbol)
-                    open_interest = get_open_interest(symbol)
-                    fear_greed    = get_fear_greed()
-                    btc_dominance = get_btc_dominance()
-
-                    if has_gemini and not has_claude:
-                        result = get_trade_signal_gemini(symbol, coin_price, coin_analysis,
-                                                          btc_price, btc_analysis, news_txt,
-                                                          funding_rate, open_interest, fear_greed, btc_dominance)
-                    else:
-                        result = get_trade_signal(symbol, coin_price, coin_analysis,
-                                                   btc_price, btc_analysis, news_txt,
-                                                   funding_rate, open_interest, fear_greed, btc_dominance)
-
-                    if result.get("watch_signal") and result.get("watch_direction"):
-                        watch_msgs.append((symbol, coin_price, result))
-                        if len(watch_msgs) >= 2:
-                            break
-
-                except Exception:
-                    continue
-
-            if watch_msgs:
-                for symbol, coin_price, result in watch_msgs:
-                    msg = format_watch_message(symbol, coin_price, result)
-                    send_whatsapp(msg)
-                    print(f"  👀 Watch signal sent for {symbol}")
-            else:
-                send_whatsapp("🔍 Scan complete — No signals or watch setups found.")
+        # Send watch signals collected during main scan (no extra API calls)
+        if watch_list:
+            for symbol, coin_price, result in watch_list:
+                msg = format_watch_message(symbol, coin_price, result)
+                send_whatsapp(msg)
+                print(f"  👀 Watch signal sent for {symbol}")
+        else:
+            send_whatsapp("🔍 Scan complete — No signals or watch setups found.")
 
 
 # ── Scheduler Setup ───────────────────────────────────────────────────────────
 
 scheduler = BlockingScheduler(timezone=PKT)
 
-# Every 2 hours — 12PM to 2AM PKT — Monday to Friday
-for hour in [12, 15, 18, 21, 0, 2]:
+# Every 3 hours — 12PM to 3AM PKT — Monday to Friday
+for hour in [12, 15, 18, 21, 0, 3]:
     scheduler.add_job(
         run_scheduled_scan,
         trigger=CronTrigger(hour=hour, minute=0, day_of_week="mon-fri", timezone=PKT)
@@ -179,7 +152,7 @@ if __name__ == "__main__":
     now = datetime.now(PKT).strftime("%Y-%m-%d %I:%M %p PKT")
     print(f"\n  🚀 Crypto Scheduler Started")
     print(f"  🕐 Current PKT Time: {now}")
-    print(f"  📅 Schedule: Mon-Fri  |  1:00 PM, 5:00 PM, 9:00 PM PKT")
+    print(f"  📅 Schedule: Mon-Fri  |  12PM, 3PM, 6PM, 9PM, 12AM, 3AM PKT")
     print(f"  📱 WhatsApp notifications: {'ON' if CALLMEBOT_PHONE else 'OFF'}")
     print(f"  🔄 Running immediate scan on startup...\n")
     run_scheduled_scan()
